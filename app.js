@@ -5,8 +5,8 @@
 // Uygulamanın kendisinde hiçbir kişisel veri yoktur; bu yüzden kodu internete koymak güvenlidir.
 
 const LIBS = [
-  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
-  'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
+  'lib/xlsx.full.min.js',
+  'lib/jszip.min.js',
 ];
 const AUTO_LOCK_MS = 60 * 1000;
 // PIN için gereken şifreleme yalnızca https:// veya localhost'ta vardır (ör. http://192.168... adresinde yoktur).
@@ -152,7 +152,7 @@ function loadScript(src) {
     const s = document.createElement('script');
     s.src = src;
     s.onload = ok;
-    s.onerror = () => fail(new Error('Gerekli kütüphane indirilemedi. İnternet bağlantınızı kontrol edin.'));
+    s.onerror = () => fail(new Error('Uygulama dosyaları yüklenemedi. İnternet bağlantınızı kontrol edip sayfayı yenileyin.'));
     document.head.appendChild(s);
   });
 }
@@ -307,9 +307,19 @@ async function readWorkbook(file, progress) {
   progress(5, 'Kütüphaneler hazırlanıyor…');
   await loadLibs();
   progress(15, 'Dosya okunuyor…');
-  const buf = await file.arrayBuffer();
+  let buf;
+  try {
+    buf = await file.arrayBuffer();
+  } catch {
+    throw new Error('Dosya açılamadı. Drive veya WhatsApp içinden seçtiyseniz önce telefona indirip "İndirilenler" klasöründen seçin.');
+  }
+  const sig = new Uint8Array(buf.slice(0, 2));
+  if (sig[0] !== 0x50 || sig[1] !== 0x4b) {
+    throw new Error('Bu dosya .xlsx biçiminde değil. Excel’de "Farklı Kaydet" ile .xlsx olarak kaydedin; dosyada parola varsa kaldırın.');
+  }
   await new Promise((r) => setTimeout(r, 30));
-  const wb = XLSX.read(buf, { type: 'array', cellFormula: true, cellNF: true, cellHTML: false });
+  // sheetStubs: değeri boş kaydedilmiş formüller (tutanak bağlantıları) atlanmasın.
+  const wb = XLSX.read(buf, { type: 'array', cellFormula: true, cellNF: true, cellHTML: false, sheetStubs: true });
   progress(45, 'Fotoğraflar ayıklanıyor…');
   const zip = await JSZip.loadAsync(buf);
 
@@ -406,7 +416,7 @@ function renderSetup(isReimport = false) {
       <img class="logo" src="icons/icon-192.png" alt="">
       <h1>${isReimport ? 'Excel’i yeniden yükle' : 'Personel Rehberi'}</h1>
       <p>Personel Excel dosyanızı seçin. Dosya bu telefonda okunur ve <b>yalnızca bu cihazda</b> saklanır; hiçbir sunucuya gönderilmez.</p>
-      <input id="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+      <input id="file" type="file" hidden>
       <button class="btn" id="pick">Excel dosyası seç</button>
       ${isReimport ? '<button class="btn secondary" id="cancel">Vazgeç</button>' : ''}
       <div id="prog" hidden>
