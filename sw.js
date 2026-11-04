@@ -1,6 +1,6 @@
 // Uygulama dosyalarını önbelleğe alır, böylece internet olmadan da açılır.
 // Kod değiştiğinde VERSION'ı artırın ki telefonlar yeni sürümü alsın.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = 'personel-' + VERSION;
 const SHELL = [
   './',

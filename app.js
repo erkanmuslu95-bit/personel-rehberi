@@ -318,10 +318,17 @@ async function readWorkbook(file, progress) {
     throw new Error('Bu dosya .xlsx biçiminde değil. Excel’de "Farklı Kaydet" ile .xlsx olarak kaydedin; dosyada parola varsa kaldırın.');
   }
   await new Promise((r) => setTimeout(r, 30));
-  // sheetStubs: değeri boş kaydedilmiş formüller (tutanak bağlantıları) atlanmasın.
-  const wb = XLSX.read(buf, { type: 'array', cellFormula: true, cellNF: true, cellHTML: false, sheetStubs: true });
-  progress(45, 'Fotoğraflar ayıklanıyor…');
   const zip = await JSZip.loadAsync(buf);
+  // Telefonda yeniden kaydedilen dosyaları SheetJS'in kendi zip okuyucusu açamıyor ("Bad compressed size").
+  // Bu yüzden dosyayı JSZip ile açıp SheetJS'e fotoğrafsız, temiz bir kopya veriyoruz.
+  const clean = new JSZip();
+  for (const f of Object.values(zip.files)) {
+    if (!f.dir && !f.name.startsWith('xl/media/')) clean.file(f.name, await f.async('uint8array'));
+  }
+  const cleanBuf = await clean.generateAsync({ type: 'uint8array' });
+  // sheetStubs: değeri boş kaydedilmiş formüller (tutanak bağlantıları) atlanmasın.
+  const wb = XLSX.read(cleanBuf, { type: 'array', cellFormula: true, cellNF: true, cellHTML: false, sheetStubs: true });
+  progress(45, 'Fotoğraflar ayıklanıyor…');
 
   const xml = async (path) => {
     const f = zip.file(path);
